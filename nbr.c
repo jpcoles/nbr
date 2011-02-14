@@ -24,29 +24,6 @@ void drift(struct env *env)
     }
 }
 
-void clear_velocity(struct env *env)
-{
-    int i;
-
-    struct mparticle *p = env->pm;
-    struct tparticle *t = env->pt;
-
-    for (i=0; i < env->Nt; i++)
-    {
-        t[i].v[0] = 
-        t[i].v[1] = 
-        t[i].v[2] = 0;
-    }
-
-    for (i=0; i < env->Nm; i++)
-    {
-        p[i].v[0] = 
-        p[i].v[1] = 
-        p[i].v[2] = 0;
-    }
-
-}
-
 void kickM(struct env *env)
 {
     int i,j;
@@ -117,6 +94,9 @@ void kickT(struct env *env)
     struct mparticle *p = env->pm;
     struct tparticle *t = env->pt;
 
+    for (i=0; i < env->Nt; i++)
+        t[i].phi = 0;
+
     #pragma omp parallel for private(j, dx,dy,dz,r2,r,r3) shared(env, t,p)
     for (i=0; i < env->Nt; i++)
     {
@@ -126,7 +106,7 @@ void kickT(struct env *env)
             dy = t[i].r[1] - p[j].r[1];
             dz = t[i].r[2] - p[j].r[2];
 
-            r2 = dx*dx + dy*dy + dz*dz + p[j].eps2;
+            r2 = dx*dx + dy*dy + dz*dz + env->eps2;
             r  = sqrt(r2);
 
             r3 = r*r2;
@@ -134,6 +114,7 @@ void kickT(struct env *env)
             t[i].v[0] -= p[j].m * dx / r3 * env->dt;
             t[i].v[1] -= p[j].m * dy / r3 * env->dt;
             t[i].v[2] -= p[j].m * dz / r3 * env->dt;
+            t[i].phi  -= p[j].m / r;
         }
 
 #if 0
@@ -161,6 +142,7 @@ int main(int argc, char **argv)
 {
     struct env env;
     double fft;
+    int i;
 
     memset(&env, 0, sizeof(env));
 
@@ -179,16 +161,33 @@ int main(int argc, char **argv)
     env.eps2 = 2*Rbin / 1.5;
     env.extent = 20;
     fft = tbr(&env, 1e11, 0.5, 2.0, 20.0, -2);
-#else
+#endif
+
+#if 1
     env.Nm = 2;
     env.Nt = 10000;
-    float Rbin = 0.1;
-    env.eps2 = 1.05; //2*Rbin / 1.5;
+    float Rbin = 0.2;
+    env.eps2 = 0.005; //2*Rbin / 1.5;
     env.extent = 1;
-    fft = ball(&env, -0.8,0,0, 0.001, 1e11, Rbin, 0.2, 1, -2);
-    //fft = tbr(&env, 1e11, Rbin, .2, 1.0, -2);
+    //fft = ball(&env, -0.8,0,0, 0.01, 1e11, Rbin, 0.2, 1, -2);
+    fft = tbr(&env, 1e11, Rbin, .2, 1.0, 0);
 #endif
-    env.T = 4 * fft;
+
+#if 0
+    env.Nm = 1;
+    env.Nt = 10000;
+    env.eps2 = 0.2;
+    env.extent = 1;
+    fft = single_mass(&env, 1e11, .2, 1.0, 0);
+#endif
+#if 0
+    env.Nm = 1;
+    env.Nt = 10000;
+    env.eps2 = 0.2;
+    env.extent = 1;
+    fft = wall(&env, 1e11);
+#endif
+    env.T = 8 * fft;
     env.Nsteps = 200;
     env.dt = 0.00001;
     env.step = 0;
@@ -196,10 +195,23 @@ int main(int argc, char **argv)
     printf("Maximum free-fall time is ~%.3e Gyr\n", fft);
     printf("Simulation time is ~%.3f Gyr\n", env.T);
 
+    double *E0 = malloc(env.Nt * sizeof(*E0));
+    double *E1 = malloc(env.Nt * sizeof(*E1));
+    double *R0 = malloc(env.Nt * sizeof(*R0));
+
 #if 1
 
     env.dt_step = env.T / env.Nsteps;
     double tt=0;
+
+    energy(&env);
+    for (i=0; i < env.Nt; i++)
+    {
+        R0[i] = sqrt(pow(env.pt[i].r[0],2)
+                   + pow(env.pt[i].r[1],2)
+                   + pow(env.pt[i].r[2],2));
+        E0[i] = env.pt[i].E;
+    }
 
     for (env.t=0; env.t <= env.T; env.t += env.dt)
     {
@@ -231,11 +243,39 @@ int main(int argc, char **argv)
         tprofile(&env, 0.1, 10, 100, 1);
 
         fprintf(stderr, "%ld %f\n", env.step, env.t);
-        //energy(&env);
         capture(&env);
         save_snapshot(&env);
     }
 #endif
+
+    energy(&env);
+    for (i=0; i < env.Nt; i++)
+        E1[i] = env.pt[i].E;
+
+    int Nbins=100;
+    double *Pu = calloc(Nbins, sizeof(*Pu));
+    double *Pd = calloc(Nbins, sizeof(*Pd));
+    for (i=0; i < env.Nt; i++)
+    {
+        int b = R0[i] * Nbins;
+        if (E1[i]-E0[i] >= 0)
+            Pu[b]++;
+        else
+            Pd[b]++;
+    }
+    for (i=0; i < Nbins; i++)
+    {
+        double S = Pu[i] + Pd[i];
+        Pu[i] /= S;
+        Pd[i] /= S;
+        printf("EBINS %e %e\n", Pu[i], Pd[i]);
+    }
+
+    double r;
+    for (i=0; i < env.Nt; i++)
+    {
+        printf("ENERGY %f %f %f %f %f\n", E0[i], E1[i], E1[i]/E0[i], E1[i]-E0[i], R0[i]);
+    }
 
     return 0;
 }

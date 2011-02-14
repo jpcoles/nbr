@@ -1,5 +1,5 @@
 CC=gcc44
-CFLAGS=-Wall -O2 -fopenmp
+CFLAGS=-Wall -g -O2 -fopenmp
 LDFLAGS=-lpng -lm -lgomp
 
 all: nbr

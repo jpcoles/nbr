@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <math.h>
 #include <time.h>
 #include <assert.h>
@@ -288,7 +289,6 @@ double ball(struct env *env,
         env->pm[0].v[0] = 0 / (Lt/Tt);
         env->pm[0].v[1] = v;
         env->pm[0].v[2] = 0 / (Lt/Tt);
-        env->pm[0].eps2   = 0 / Lt;
         env->pm[0].m      = m / Mt;
 
         env->pm[1].r[0] = -env->pm[0].r[0];
@@ -297,7 +297,6 @@ double ball(struct env *env,
         env->pm[1].v[0] =  env->pm[0].v[0];
         env->pm[1].v[1] = -env->pm[0].v[1];
         env->pm[1].v[2] =  env->pm[0].v[2];
-        env->pm[1].eps2 =  env->pm[0].eps2;
         env->pm[1].m    =  env->pm[0].m;
     }
 
@@ -350,8 +349,10 @@ double tbr(struct env *env, float M, float Rbin, float Rmin, float Rmax, float s
         env->pt[i].v[1] = 0 / (Lt/Tt);
         env->pt[i].v[2] = 0 / (Lt/Tt);
 
-        em = enc_mass(r, M, Rmin, Rmax, slope);
+        em = enc_mass(r, M, Rmin/100, Rmax, slope);
+        //em = enc_mass(r, M, Rmin, Rmax, slope);
         ff = M_PI/4 * sqrt((2*pow(r / Lt,3))/ (em/Mt));
+        printf("%f, %f, %f\n", ff, r, em);
         if (ff > FFmax) 
         {
             //cerr << ff << " " << r << " " << (M) << endl;
@@ -371,7 +372,6 @@ double tbr(struct env *env, float M, float Rbin, float Rmin, float Rmax, float s
         env->pm[0].v[0] = 0 / (Lt/Tt);
         env->pm[0].v[1] = v;
         env->pm[0].v[2] = 0 / (Lt/Tt);
-        env->pm[0].eps2   = 0 / Lt;
         env->pm[0].m      = m / Mt;
 
         env->pm[1].r[0] = -env->pm[0].r[0];
@@ -380,14 +380,323 @@ double tbr(struct env *env, float M, float Rbin, float Rmin, float Rmax, float s
         env->pm[1].v[0] =  env->pm[0].v[0];
         env->pm[1].v[1] = -env->pm[0].v[1];
         env->pm[1].v[2] =  env->pm[0].v[2];
-        env->pm[1].eps2 =  env->pm[0].eps2;
         env->pm[1].m    =  env->pm[0].m;
     }
 
     return FFmax;
 }
 
+double single_mass(struct env *env, float M, float Rmin, float Rmax, float slope)
+{
+    int i;
+
+    double em,ff=0,FFmax=0;
+
+    double x,y,z,t,w;
+
+    double Mt, Lt, Tt;
+    units(&Mt, &Lt, &Tt);
+
+    assert(env->Nm == 1);
+
+    if (env->Nm) env->pm = malloc(env->Nm * sizeof(*env->pm));
+    if (env->Nt) env->pt = malloc(env->Nt * sizeof(*env->pt));
+
+    double v, mu;
+    double m = M / env->Nm;
+    double r,d;
+
+    for (i=0; i < env->Nt; i++)
+    {
 #if 0
+        if (prop->mode & MODE_RMAX_SHELL) 
+            r = Rmax;
+        else
+#endif
+        r = new_point(Rmin, Rmax, slope);
+
+        z = 2.0 * drand48() - 1.0;
+
+        t = 2.0 * M_PI * drand48();
+        w = sqrt(1 - z*z);
+        x = w * cos(t);
+        y = w * sin(t);
+
+
+        env->pt[i].r[0] = x * (r / Lt);
+        env->pt[i].r[1] = y * (r / Lt);
+        env->pt[i].r[2] = z * (r / Lt);
+        //printf("%f %f %f\n", env->pt[i].r[0], env->pt[i].r[1], env->pt[i].r[2]);
+
+        env->pt[i].v[0] = 0 / (Lt/Tt);
+        env->pt[i].v[1] = 0 / (Lt/Tt);
+        env->pt[i].v[2] = 0 / (Lt/Tt);
+
+        em = enc_mass(r, M, Rmin/100, Rmax, slope);
+        //em = enc_mass(r, M, Rmin, Rmax, slope);
+        ff = M_PI/4 * sqrt((2*pow(r / Lt,3))/ (em/Mt));
+        printf("%f, %f, %f\n", ff, r, em);
+        if (ff > FFmax) 
+        {
+            //cerr << ff << " " << r << " " << (M) << endl;
+            FFmax = ff;
+        }
+    }
+
+    if (env->Nm)
+    {
+        env->pm[0].r[0] = 0;
+        env->pm[0].r[1] = 0 / Lt;
+        env->pm[0].r[2] = 0 / Lt;
+        env->pm[0].v[0] = 0 / (Lt/Tt);
+        env->pm[0].v[1] = 0 / (Lt/Tt);
+        env->pm[0].v[2] = 0 / (Lt/Tt);
+        env->pm[0].m      = m / Mt;
+    }
+
+    return FFmax;
+}
+
+double wall(struct env *env, float M)
+{
+    int i;
+
+    double em,ff=0,FFmax=0;
+
+    double x,y,z,t,w;
+
+    double Mt, Lt, Tt;
+    units(&Mt, &Lt, &Tt);
+
+    assert(env->Nm == 1);
+
+    if (env->Nm) env->pm = malloc(env->Nm * sizeof(*env->pm));
+    if (env->Nt) env->pt = malloc(env->Nt * sizeof(*env->pt));
+
+    double v, mu;
+    double m = M / env->Nm;
+    double r,d;
+
+    for (i=0; i < env->Nt; i++)
+    {
+        x = (-0.5 - 0.01*(i/10)) / Lt;
+        y = (0.2 + 0.01*(i%10)) / Lt;
+        z = 0;
+
+        env->pt[i].r[0] = x;
+        env->pt[i].r[1] = y;
+        env->pt[i].r[2] = z;
+        //printf("%f %f %f\n", env->pt[i].r[0], env->pt[i].r[1], env->pt[i].r[2]);
+
+        env->pt[i].v[0] = 0 / (Lt/Tt);
+        env->pt[i].v[1] = 0 / (Lt/Tt);
+        env->pt[i].v[2] = 0 / (Lt/Tt);
+
+#if 0
+        //em = enc_mass(r, M, Rmin/100, Rmax, slope);
+        //em = enc_mass(r, M, Rmin, Rmax, slope);
+        ff = M_PI/4 * sqrt((2*pow(r / Lt,3))/ (em/Mt));
+        printf("%f, %f, %f\n", ff, r, em);
+        if (ff > FFmax) 
+        {
+            //cerr << ff << " " << r << " " << (M) << endl;
+            FFmax = ff;
+        }
+#endif
+    }
+
+    if (env->Nm)
+    {
+        env->pm[0].r[0] = 0;
+        env->pm[0].r[1] = 0 / Lt;
+        env->pm[0].r[2] = 0 / Lt;
+        env->pm[0].v[0] = 0 / (Lt/Tt);
+        env->pm[0].v[1] = 0 / (Lt/Tt);
+        env->pm[0].v[2] = 0 / (Lt/Tt);
+        env->pm[0].m      = m / Mt;
+    }
+
+    return FFmax;
+}
+
+#if 0
+
+void help(char *track)
+{
+    if (track != NULL)
+        cerr << track << endl;
+
+    cerr << "Usage: tbr OPTIONS <N> <mass> <Rmax> <Rmin> <slope> <softening> <out file>" << endl
+         << endl
+         << "where OPTIONS are:" << endl
+         << "   --seed=N            Initialize random seed to integer N." << endl
+         << "                       Default is to base the seed on the time(NULL)." << endl
+         << "   --mode=[0,1]        Select a configuration:" << endl
+         << "                           0: Normal, binary orbiting pair and tracer particle." << endl
+         << "                           1: Binary pair is not orbiting." << endl
+         << "                           2: All particles are at Rmax." << endl
+         << "                           3: All particles are in a small box." << endl
+         << endl;
+
+    exit(EXIT_FAILURE);
+}
+
+int main(int argc, char **argv)
+{
+    ofTipsy out;
+    TipsyHeader       h;
+
+    prop_t prop;
+
+    prop.mode = MODE_NORMAL;
+    prop.Rdroplet = 0;
+    prop.Rbinary = 0;
+    prop.seed = time(NULL);
+
+    static struct option long_options[] = {
+        {"seed", required_argument, 0, 0},
+        {"mode", required_argument, 0, 0},
+        {"drad", required_argument, 0, 0},
+        {"2d", no_argument, 0, 0},
+        {"xy", no_argument, 0, 0},
+        {"yz", no_argument, 0, 0},
+        {"xz", no_argument, 0, 0},
+        {"Rbin", required_argument, 0, 0},
+        {"help", no_argument, 0, 'h'},
+        {0, 0, 0, 0}
+    };
+
+    /*--------------------------------------------------------------------------
+     * Process the command line flags
+     *------------------------------------------------------------------------*/
+    while (1)
+    {
+        int option_index = 0;
+        int c = getopt_long(argc, argv, "h",
+                            long_options, &option_index);
+
+        if (c == -1) break;
+
+        switch (c)
+        {
+            case 0:
+                if (!strcmp("seed", long_options[option_index].name))
+                {
+                    prop.seed = atoi(optarg);
+                }
+                if (!strcmp("mode", long_options[option_index].name))
+                {
+                    prop.mode |= atoi(optarg);
+                    if (prop.mode & ~ALL_MODES) help("1");
+                }
+                if (!strcmp("drad", long_options[option_index].name))
+                {
+                    prop.Rdroplet = atof(optarg);
+                }
+                if (!strcmp("2d", long_options[option_index].name))
+                {
+                    prop.mode |= MODE_2D;
+                }
+                if (!strcmp("yz", long_options[option_index].name))
+                    prop.mode |= MODE_YZ;
+                if (!strcmp("xz", long_options[option_index].name))
+                    prop.mode |= MODE_XZ;
+                if (!strcmp("xy", long_options[option_index].name))
+                    prop.mode |= MODE_XY;
+
+                if (!strcmp("Rbin", long_options[option_index].name))
+                    prop.Rbinary = atof(optarg);
+
+                break;
+
+            case 'h': /* Fall through */
+            case '?': /* Fall through */
+            default:
+                help("2");
+        }
+    }
+
+    srand48(prop.seed);
+
+    if (argc-optind < 7) help("3");
+
+    // -- Change these values --
+    //double R    = 20;
+    //double M    = 1e11;
+    //double soft = 1;
+    // -------------------------
+
+    prop.N       = atoi(argv[optind+0]);   // N
+    prop.M       = atof(argv[optind+1]);   // M
+    prop.Rmax    = atof(argv[optind+2]);   // Rmax
+    prop.Rmin    = atof(argv[optind+3]);   // Rmin
+    prop.slope   = atof(argv[optind+4]);   // slope
+    prop.soft    = atof(argv[optind+5]);   // soft
+
+    string mark(argv[optind+6]);
+
+
+    assert(prop.slope >= 0);
+    prop.slope *= -1;
+
+    TipsyDarkParticle *d;
+
+    double ff;
+
+    if (prop.mode & (MODE_BINARY | MODE_STATIC_BINARY))
+    {
+        if (prop.Rbinary == 0) help("4");
+        ff = tbr(&prop, &d);
+    }
+    else
+    {
+        d = new TipsyDarkParticle[prop.N];
+        ff = ball(&prop, d,prop.N,1);
+    }
+
+    h.h_time = 0;
+    h.h_nBodies = prop.N;
+    h.h_nDims = 3;
+    h.h_nDark = prop.N;
+    h.h_nStar = 0;
+    h.h_nSph = 0;
+
+    out.open(mark.c_str(), "standard");
+    mark += ".mark";
+
+    cerr << mark << endl;
+    ofstream markout(mark.c_str(), ios::out);
+
+    out << h;
+    markout << " " << h.h_nDark << " " << h.h_nSph<< " " << h.h_nStar << endl;
+    for (int32_t i=0; i < prop.N; i++) 
+    {
+        out << d[i];
+        if (d[i].mass < 1) markout << (i+1) << endl;
+    }
+    markout.close();
+    out.close();
+
+    delete d;
+
+    cout << setprecision(10) << ff << endl;
+    cerr << setprecision(10) << ff << endl;
+
+    cerr << "N="        << prop.N << endl
+         << "M="        << prop.M << endl
+         << "Rmax="     << prop.Rmax << endl
+         << "Rmin="     << prop.Rmin << endl
+         << "Rbinary="  << prop.Rbinary << endl
+         << "slope="    << prop.slope << endl
+         << "soft="     << prop.soft << endl
+         << "seed="     << prop.seed << endl
+         << "mode="     << prop.mode << endl
+         << "mark="     << mark << endl
+         << "Tff="      << ff << endl;
+
+    return EXIT_SUCCESS;
+}
+
 
 void help(char *track)
 {

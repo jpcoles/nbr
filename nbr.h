@@ -8,7 +8,6 @@ struct mparticle
     double r[3];       // Position
     double v[3];       // Momentum
     float m;            // Mass
-    float eps2;
     float phi;
 };
 
@@ -16,6 +15,8 @@ struct tparticle
 {
     double r[3];       // Position
     double v[3];       // Momentum
+    double E;
+    double phi;
 };
 
 struct image

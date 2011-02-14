@@ -64,6 +64,61 @@ void tprofile(struct env *env, float Rmin, float Rmax, int Nbins, int use_log)
         fprintf(fp, "%e %e %ld\n", r, bins[i]/V, M);
     }
 
+#if 1
+    M = 0;
+    double r_e=0;
+    double rho_e=0;
+    double norm = 0;
+    for (i=0; i < Nbins; i++)
+    {
+        r = (i+1) * (Rmax-Rmin) / Nbins + Rmin;
+        if (use_log)
+            r = pow(10,r);
+        V = 4./3.*M_PI*pow(r,3);
+
+        M += bins[i];
+        if (M >= env->Nt/2)
+        {
+            r_e = r;
+            rho_e = bins[i] / V;
+            break;
+        }
+    }
+    if (rho_e)
+    {
+        double n=3;
+        double dn = 3*n - 1./3 + 0.0079/n;
+
+        double chi2 = 0;
+
+        for (i=0; i < Nbins; i++)
+        {
+            r = (i+1) * (Rmax-Rmin) / Nbins + Rmin;
+            if (use_log)
+                r = pow(10,r);
+            V = 4./3.*M_PI*pow(r,3);
+
+            double ein = rho_e * exp(-dn*(pow(r/r_e,1./n) - 1));
+	    norm += ein;
+	}
+
+        for (i=0; i < Nbins; i++)
+        {
+            r = (i+1) * (Rmax-Rmin) / Nbins + Rmin;
+            if (use_log)
+                r = pow(10,r);
+            V = 4./3.*M_PI*pow(r,3);
+
+            double ein = rho_e * exp(-dn*(pow(r/r_e,1./n) - 1));
+            double rho = bins[i] / V;
+
+            chi2 += pow(rho - ein,2) / ein;
+        }
+
+        printf("Chi2 is %f\n", chi2 / norm);
+    }
+#endif
+
     free(fname);
 
     free(bins);
@@ -71,9 +126,11 @@ void tprofile(struct env *env, float Rmin, float Rmax, int Nbins, int use_log)
 
 void energy(struct env *env)
 {
-    int i;
+    int i,j;
     double E=0;
     double v2;
+    double phi;
+    double dx, dy, dz, r2,r;
 
     for (i=0; i < env->Nm; i++)
     {
@@ -84,6 +141,28 @@ void energy(struct env *env)
         E += 0.5*env->pm[i].m * v2 + env->pm[i].phi;
     }
 
-    printf("ENERGY %f\n", E);
+    for (i=0; i < env->Nt; i++)
+    {
+	phi = 0;
+        for (j=0; j < env->Nm; j++)
+        {
+            dx = env->pt[i].r[0] - env->pm[j].r[0];
+            dy = env->pt[i].r[1] - env->pm[j].r[1];
+            dz = env->pt[i].r[2] - env->pm[j].r[2];
+
+            r2 = dx*dx + dy*dy + dz*dz + env->eps2;
+            r  = sqrt(r2);
+
+            phi -= env->pm[j].m / r;
+	}
+
+        v2 = pow(env->pt[i].v[0],2)
+           + pow(env->pt[i].v[1],2)
+           + pow(env->pt[i].v[2],2);
+
+	env->pt[i].E = 0.5*v2 + phi;
+    }
+
+    //printf("ENERGY %f\n", E);
 }
 
