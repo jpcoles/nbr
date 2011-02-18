@@ -41,6 +41,7 @@ for f in files:
         rho_e = rho[ri]
         if rho_e:
             re = xs[ri]
+            #print 're',re
             n = 3
             dn = 3*n - 1./3 + 0.0079/n
             ein = rho_e * exp(-dn*((xs/re)**(1./n) - 1))

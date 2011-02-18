@@ -311,8 +311,8 @@ double tbr(struct env *env, float M, float Rbin, float Rmin, float Rmax, float s
 
     double x,y,z,t,w;
 
-    double Mt, Lt, Tt;
-    units(&Mt, &Lt, &Tt);
+    double Mt=1, Lt=1, Tt=1;
+    //units(&Mt, &Lt, &Tt);
 
     //assert(env->Nm == 2);
 
@@ -352,7 +352,7 @@ double tbr(struct env *env, float M, float Rbin, float Rmin, float Rmax, float s
         em = enc_mass(r, M, Rmin/100, Rmax, slope);
         //em = enc_mass(r, M, Rmin, Rmax, slope);
         ff = M_PI/4 * sqrt((2*pow(r / Lt,3))/ (em/Mt));
-        printf("%f, %f, %f\n", ff, r, em);
+        //printf("%f, %f, %f\n", ff, r, em);
         if (ff > FFmax) 
         {
             //cerr << ff << " " << r << " " << (M) << endl;
@@ -394,8 +394,8 @@ double single_mass(struct env *env, float M, float Rmin, float Rmax, float slope
 
     double x,y,z,t,w;
 
-    double Mt, Lt, Tt;
-    units(&Mt, &Lt, &Tt);
+    double Mt=1, Lt=1, Tt=1;
+    //units(&Mt, &Lt, &Tt);
 
     assert(env->Nm == 1);
 
@@ -435,7 +435,7 @@ double single_mass(struct env *env, float M, float Rmin, float Rmax, float slope
         em = enc_mass(r, M, Rmin/100, Rmax, slope);
         //em = enc_mass(r, M, Rmin, Rmax, slope);
         ff = M_PI/4 * sqrt((2*pow(r / Lt,3))/ (em/Mt));
-        printf("%f, %f, %f\n", ff, r, em);
+        //printf("%f, %f, %f\n", ff, r, em);
         if (ff > FFmax) 
         {
             //cerr << ff << " " << r << " " << (M) << endl;

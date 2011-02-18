@@ -165,12 +165,26 @@ int main(int argc, char **argv)
 
 #if 1
     env.Nm = 2;
-    env.Nt = 10000;
-    float Rbin = 0.2;
-    env.eps2 = 0.005; //2*Rbin / 1.5;
-    env.extent = 1;
+    env.Nt = 100000;
+    float Rbin = 1.0;
+    //env.eps2 = 0.5; //2*Rbin / 1.5;
+    env.eps2 = 0.005; //pow(2*M_PI,-4/3.);
+    printf("eps2 is %f\n", env.eps2);
+    env.extent = Rbin*10;
     //fft = ball(&env, -0.8,0,0, 0.01, 1e11, Rbin, 0.2, 1, -2);
-    fft = tbr(&env, 1e11, Rbin, .2, 1.0, 0);
+    fft = tbr(&env, 1, Rbin, .01*Rbin, env.extent, -1);
+    //fft = single_mass(&env, 1, 1.1*Rbin, env.extent, 0);
+#endif
+
+#if 0
+    // Fit very well after T = 8fft with einasto n=2
+    env.Nm = 1;
+    env.Nt = 10000;
+    float Rbin = 1.0;
+    env.eps2 = 0.005;
+    printf("eps2 is %f\n", env.eps2);
+    env.extent = Rbin*10;
+    fft = single_mass(&env, 1, 1.1*Rbin, env.extent, -2);
 #endif
 
 #if 0
@@ -187,9 +201,9 @@ int main(int argc, char **argv)
     env.extent = 1;
     fft = wall(&env, 1e11);
 #endif
-    env.T = 8 * fft;
+    env.T = 4*fft;
     env.Nsteps = 200;
-    env.dt = 0.00001;
+    env.dt = 0.01;
     env.step = 0;
 
     printf("Maximum free-fall time is ~%.3e Gyr\n", fft);
