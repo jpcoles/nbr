@@ -8,4 +8,5 @@ double ball(struct env *env,
 
 double single_mass(struct env *env, float M, float Rmin, float Rmax, float slope);
 double wall(struct env *env, float M);
+float sgrstream(struct env *env);
 #endif

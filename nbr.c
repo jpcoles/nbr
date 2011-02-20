@@ -163,7 +163,7 @@ int main(int argc, char **argv)
     fft = tbr(&env, 1e11, 0.5, 2.0, 20.0, -2);
 #endif
 
-#if 1
+#if 0
     env.Nm = 2;
     env.Nt = 100000;
     float Rbin = 1.0;
@@ -206,6 +206,21 @@ int main(int argc, char **argv)
     env.dt = 0.01;
     env.step = 0;
 
+#if 1
+    env.Nm = 1;
+    env.Nt = 1000;
+    env.eps2 = 0.005;
+    printf("eps2 is %f\n", env.eps2);
+    env.extent = 10;
+    //fft = ball(&env, -0.8,0,0, 0.01, 1e11, Rbin, 0.2, 1, -2);
+    fft = sgrstream(&env);
+    fft = 2;
+    env.T = 4*fft;
+    env.Nsteps = 0;
+    env.dt = 0.01;
+    env.step = 0;
+#endif
+
     printf("Maximum free-fall time is ~%.3e Gyr\n", fft);
     printf("Simulation time is ~%.3f Gyr\n", env.T);
 
@@ -226,6 +241,8 @@ int main(int argc, char **argv)
                    + pow(env.pt[i].r[2],2));
         E0[i] = env.pt[i].E;
     }
+
+    tprofile(&env, 0.01-1e-3, .1, 100, 1);
 
     for (env.t=0; env.t <= env.T; env.t += env.dt)
     {
