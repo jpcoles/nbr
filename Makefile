@@ -1,6 +1,6 @@
-CC=gcc44
-CFLAGS=-Wall -g -O2 -fopenmp
-LDFLAGS=-lpng -lm -lgomp
+CC=gcc
+CFLAGS=-Wall -g -O2 -fopenmp -I/usr/X11/include
+LDFLAGS=-lpng -lm -lgomp -L/usr/X11/lib
 
 all: nbr
 

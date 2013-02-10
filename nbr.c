@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 #include <string.h>
 #include "nbr.h"
@@ -6,35 +7,41 @@
 #include "io.h"
 #include "analysis.h"
 
-void drift(struct env *env)
+void drift(struct env *env, double dt)
 {
     int i;
     for (i=0; i < env->Nt; i++)
     {
-        env->pt[i].r[0] += env->dt/2 * env->pt[i].v[0];
-        env->pt[i].r[1] += env->dt/2 * env->pt[i].v[1];
-        env->pt[i].r[2] += env->dt/2 * env->pt[i].v[2];
+        env->pt[i].r[0] += dt * env->pt[i].v[0];
+        env->pt[i].r[1] += dt * env->pt[i].v[1];
+        env->pt[i].r[2] += dt * env->pt[i].v[2];
     }
 
     for (i=0; i < env->Nm; i++)
     {
-        env->pm[i].r[0] += env->dt/2 * env->pm[i].v[0];
-        env->pm[i].r[1] += env->dt/2 * env->pm[i].v[1];
-        env->pm[i].r[2] += env->dt/2 * env->pm[i].v[2];
+        env->pm[i].r[0] += dt * env->pm[i].v[0];
+        env->pm[i].r[1] += dt * env->pm[i].v[1];
+        env->pm[i].r[2] += dt * env->pm[i].v[2];
     }
 }
 
-void kickM(struct env *env)
+void accelM(struct env *env)
 {
     int i,j;
     double dx, dy, dz;
     double r, r2, r3;
-    double vx, vy, vz;
+    double ax, ay, az;
+    double rinv;
 
     struct mparticle *p = env->pm;
 
     for (i=0; i < env->Nm; i++)
+    {
+        p[i].a[0] = 0;
+        p[i].a[1] = 0;
+        p[i].a[2] = 0;
         p[i].phi = 0;
+    }
 
     for (i=0; i < env->Nm-1; i++)
     {
@@ -45,25 +52,51 @@ void kickM(struct env *env)
             dz = p[i].r[2] - p[j].r[2];
 
             r2 = dx*dx + dy*dy + dz*dz + env->eps2;
-            r  = sqrt(r2);
+            rinv  = 1./sqrt(r2);
 
-            r3 = r*r2;
+            //double rhatx = dx / r;
+            //double rhaty = dy / r;
+            //double rhatz = dz / r;
 
-            vx = dx / r3 * env->dt;
-            vy = dy / r3 * env->dt;
-            vz = dz / r3 * env->dt;
+            //r3 = r*r2;
 
-            p[i].v[0] -= p[j].m * vx;
-            p[i].v[1] -= p[j].m * vy;
-            p[i].v[2] -= p[j].m * vz;
-            p[i].phi  -= p[i].m * p[j].m / r;
+            //ax = (rhatx / r2);
+            //ay = (rhaty / r2);
+            //az = (rhatz / r2);
+            ax = dx * pow(rinv,3);
+            ay = dy * pow(rinv,3);
+            az = dz * pow(rinv,3);
 
-            p[j].v[0] += p[i].m * vx;
-            p[j].v[1] += p[i].m * vy;
-            p[j].v[2] += p[i].m * vz;
-            p[j].phi  -= p[i].m * p[j].m / r;
+            //fprintf(stderr, "%e %e %e %e %e\n", vx, vy, vz, p[j].m, p[j].m * vx);
+
+            p[i].a[0] -= p[j].m * ax;
+            p[i].a[1] -= p[j].m * ay;
+            p[i].a[2] -= p[j].m * az;
+
+            p[j].a[0] += p[i].m * ax;
+            p[j].a[1] += p[i].m * ay;
+            p[j].a[2] += p[i].m * az;
         }
     }
+}
+
+void kick(struct env *env, double dt)
+{
+    int i;
+//  for (i=0; i < env->Nt; i++)
+//  {
+//      env->pt[i].v[0] += dt * env->pt[i].a[0];
+//      env->pt[i].v[1] += dt * env->pt[i].a[1];
+//      env->pt[i].v[2] += dt * env->pt[i].a[2];
+//  }
+
+    for (i=0; i < env->Nm; i++)
+    {
+        env->pm[i].v[0] += dt * env->pm[i].a[0];
+        env->pm[i].v[1] += dt * env->pm[i].a[1];
+        env->pm[i].v[2] += dt * env->pm[i].a[2];
+    }
+}
 
 #if 0
     for (i=0; i < env->Nm; i++)
@@ -76,7 +109,6 @@ void kickM(struct env *env)
         printf("%i %f %f %f %f\n", i, p[i].v[0], p[i].v[1], p[i].v[2], r);
     }
 #endif
-}
 
 double pot(struct env *env)
 {
@@ -85,7 +117,7 @@ double pot(struct env *env)
     return 1e11 * 0.5 * (1 - sin(10*t/env->T));
 }
 
-void kickT(struct env *env)
+void accelT(struct env *env, double dt)
 {
     int i,j;
     double dx, dy, dz;
@@ -111,9 +143,9 @@ void kickT(struct env *env)
 
             r3 = r*r2;
 
-            t[i].v[0] -= p[j].m * dx / r3 * env->dt;
-            t[i].v[1] -= p[j].m * dy / r3 * env->dt;
-            t[i].v[2] -= p[j].m * dz / r3 * env->dt;
+            t[i].v[0] -= p[j].m * dx / r3 * dt;
+            t[i].v[1] -= p[j].m * dy / r3 * dt;
+            t[i].v[2] -= p[j].m * dz / r3 * dt;
             t[i].phi  -= p[j].m / r;
         }
 
@@ -126,16 +158,31 @@ void kickT(struct env *env)
         r  = sqrt(r2);
         r3 = r*r2;
 
-        t[i].v[0] -= pot(env) * dx / r3 * env->dt;
-        t[i].v[1] -= pot(env) * dy / r3 * env->dt;
-        t[i].v[2] -= pot(env) * dz / r3 * env->dt;
+        t[i].v[0] -= pot(env) * dx / r3 * dt;
+        t[i].v[1] -= pot(env) * dy / r3 * dt;
+        t[i].v[2] -= pot(env) * dz / r3 * dt;
 #endif
     }
 }
 
 double time_step(struct env *env)
 {
+    //fprintf(stderr, "%f\n", exp(-0.5*env->t));
+    //return (env->dt-0.001/env->units.T) * (1. / (1. + exp(-0.5*env->t))) + 0.001/env->units.T;
     return env->dt;
+}
+
+void process_step(struct env *env)
+{
+    tprofile(env, 0.1, 10, 100, 1);
+    energy(env);
+    //CoM(env);
+    env->CoM[0] = env->pm[0].r[0];
+    env->CoM[1] = env->pm[0].r[1];
+    env->CoM[2] = env->pm[0].r[2];
+    angmom(env);
+    capture(env);
+    save_snapshot(env);
 }
 
 int main(int argc, char **argv)
@@ -146,13 +193,11 @@ int main(int argc, char **argv)
 
     memset(&env, 0, sizeof(env));
 
-
     strcpy(env.tag, "frame");
-
 
     env.image.nr = 480;
     env.image.nc = 480;
-    env.image.img = malloc(3 * env.image.nr * env.image.nc * sizeof(*env.image.img));
+    env.image.img = calloc(3 * env.image.nr * env.image.nc, sizeof(*env.image.img));
 
 #if 0
     env.Nm = 2;
@@ -206,7 +251,7 @@ int main(int argc, char **argv)
     env.dt = 0.01;
     env.step = 0;
 
-#if 1
+#if 0
     env.Nm = 1;
     env.Nt = 1000;
     env.eps2 = 0.005;
@@ -218,6 +263,21 @@ int main(int argc, char **argv)
     env.T = 4*fft;
     env.Nsteps = 0;
     env.dt = 0.01;
+    env.step = 0;
+#endif
+
+#if 1
+    env.Nm = 13;
+    env.Nt = 0;
+    env.eps2 = 0.000;
+    fft = solsystem(&env);
+
+    env.extent = 100 / env.units.L; //5.0 / env.units.L;
+    //env.T = 10 / env.units.T; //40 * 365;
+    env.T = 14611 / env.units.T; //40 * 365;
+    env.Nsteps = 200;
+    env.dt = pow(2,-7) / env.units.T;
+    //env.dt = 0.0001 / env.units.T;
     env.step = 0;
 #endif
 
@@ -233,6 +293,7 @@ int main(int argc, char **argv)
     env.dt_step = env.T / env.Nsteps;
     double tt=0;
 
+#if 0
     energy(&env);
     for (i=0; i < env.Nt; i++)
     {
@@ -241,41 +302,54 @@ int main(int argc, char **argv)
                    + pow(env.pt[i].r[2],2));
         E0[i] = env.pt[i].E;
     }
+#endif
 
-    tprofile(&env, 0.01-1e-3, .1, 100, 1);
+    //tprofile(&env, 0.01-1e-3, .1, 100, 1);
 
-    for (env.t=0; env.t <= env.T; env.t += env.dt)
+    double dt=0;
+    env.t = 0;
+    dt = time_step(&env);
+
+    //energy(&env);
+    //angmom(&env);
+
+    process_step(&env);
+
+    accelM(&env);
+    kick(&env,  dt/2);
+
+    for (env.t=0; env.t <= env.T; env.t += dt)
     {
-        env.dt = time_step(&env);
+        dt = time_step(&env);
 
-        drift(&env);
-        kickM(&env);
-        kickT(&env);
-        drift(&env);
+        drift(&env, dt);
+        accelM(&env);
+        //accelT(&env);
 
-        tt += env.dt;
+        tt += dt;
         if (tt >= env.dt_step)
         {
             tt -= env.dt_step;
-
-            tprofile(&env, 0.1, 10, 100, 1);
-
-            fprintf(stderr, "%ld %f\n", env.step, env.t);
-            //energy(&env);
-            capture(&env);
-            save_snapshot(&env);
-
             env.step++;
+
+            fprintf(stderr, "%ld %f %f\n", env.step, env.t, dt);
+
+            kick(&env, dt/2.);
+            process_step(&env);
+            kick(&env, dt/2.);
+
+        }
+        else
+        {
+            kick(&env, dt);
         }
     }
 
     if (tt)
     {
-        tprofile(&env, 0.1, 10, 100, 1);
-
+        kick(&env, -dt/2.);
         fprintf(stderr, "%ld %f\n", env.step, env.t);
-        capture(&env);
-        save_snapshot(&env);
+        process_step(&env);
     }
 #endif
 
@@ -286,26 +360,46 @@ int main(int argc, char **argv)
     int Nbins=100;
     double *Pu = calloc(Nbins, sizeof(*Pu));
     double *Pd = calloc(Nbins, sizeof(*Pd));
-    for (i=0; i < env.Nt; i++)
+
+    if (env.Nt)
     {
-        int b = R0[i] * Nbins;
-        if (E1[i]-E0[i] >= 0)
-            Pu[b]++;
-        else
-            Pd[b]++;
-    }
-    for (i=0; i < Nbins; i++)
-    {
-        double S = Pu[i] + Pd[i];
-        Pu[i] /= S;
-        Pd[i] /= S;
-        printf("EBINS %e %e\n", Pu[i], Pd[i]);
+        for (i=0; i < env.Nt; i++)
+        {
+            int b = R0[i] * Nbins;
+            if (E1[i]-E0[i] >= 0)
+                Pu[b]++;
+            else
+                Pd[b]++;
+        }
+        for (i=0; i < Nbins; i++)
+        {
+            double S = Pu[i] + Pd[i];
+            Pu[i] /= S;
+            Pd[i] /= S;
+            printf("EBINS %e %e\n", Pu[i], Pd[i]);
+        }
+
+        double r;
+        for (i=0; i < env.Nt; i++)
+        {
+            printf("ENERGY %f %f %f %f %f\n", E0[i], E1[i], E1[i]/E0[i], E1[i]-E0[i], R0[i]);
+        }
     }
 
-    double r;
-    for (i=0; i < env.Nt; i++)
+    double L = env.units.L;
+    double V = env.units.L / env.units.T;
+    for (i=0; i < env.Nm; i++)
     {
-        printf("ENERGY %f %f %f %f %f\n", E0[i], E1[i], E1[i]/E0[i], E1[i]-E0[i], R0[i]);
+#if 0
+        printf("PS %i %18.15e %18.15e %18.15e %18.15e %18.15e %18.15e %18.15e\n", 
+                i, env.pm[i].r[0], env.pm[i].r[1], env.pm[i].r[2],
+                   env.pm[i].v[0], env.pm[i].v[1], env.pm[i].v[2], env.pm[i].m);
+
+#else
+        printf("PS %i %18.15e %18.15e %18.15e %18.15e %18.15e %18.15e\n", 
+                i, env.pm[i].r[0]-env.pm[0].r[0], env.pm[i].r[1]-env.pm[0].r[1], env.pm[i].r[2]-env.pm[0].r[2],
+                   env.pm[i].v[0]-env.pm[0].v[0], env.pm[i].v[1]-env.pm[0].v[1], env.pm[i].v[2]-env.pm[0].v[2]);
+#endif
     }
 
     return 0;

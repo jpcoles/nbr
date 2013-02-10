@@ -1,6 +1,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <png.h>
 #include "io.h"
 
@@ -83,15 +84,15 @@ void capture(struct env *env)
     struct mparticle *p = env->pm;
     struct tparticle *t = env->pt;
 
-    memset(env->image.img, 0, 3*env->image.nc*env->image.nr*sizeof(*(env->image.img)));
+    //memset(env->image.img, 0, 3*env->image.nc*env->image.nr*sizeof(*(env->image.img)));
 
     uint32_t nr = env->image.nr;
     uint32_t nc = env->image.nc;
     size_t i;
     for (i=0; i < env->Nm; i++)
     {
-        int32_t c = ( p[i].r[0] + env->extent) / (2.0*env->extent) * nc;
-        int32_t r = (-p[i].r[1] + env->extent) / (2.0*env->extent) * nr;
+        int32_t c = ( (p[i].r[0]-env->CoM[0]) + env->extent) / (2.0*env->extent) * nc;
+        int32_t r = (-(p[i].r[1]-env->CoM[1]) + env->extent) / (2.0*env->extent) * nr;
         if (!(0 <= r && r < nr)) continue;
         if (!(0 <= c && c < nc)) continue;
         env->image.img[3*(r*nc + c) + 0] = (255);

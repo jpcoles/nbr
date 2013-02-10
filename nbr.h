@@ -7,6 +7,7 @@ struct mparticle
 {
     double r[3];       // Position
     double v[3];       // Momentum
+    double a[3];       // Acceleration
     float m;            // Mass
     float phi;
 };
@@ -46,6 +47,13 @@ struct env
 
     struct image image;
     char tag[256];
+
+    struct 
+    {
+        double M,L,T,G;
+    } units;
+
+    double CoM[3];
 
 };
 

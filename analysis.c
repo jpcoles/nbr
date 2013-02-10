@@ -127,10 +127,35 @@ void tprofile(struct env *env, float Rmin, float Rmax, int Nbins, int use_log)
 void energy(struct env *env)
 {
     int i,j;
-    double E=0;
+    double E=0, K=0,V=0;
+    static double E0 = 0;
+    static double Esum = 0;
+    static double Ncalls=0;
     double v2;
     double phi;
     double dx, dy, dz, r2,r;
+    double rinv;
+
+    struct mparticle *p = env->pm;
+    for (i=0; i < env->Nm; i++)
+        p[i].phi = 0;
+
+    for (i=0; i < env->Nm-1; i++)
+    {
+        for (j=i+1; j < env->Nm; j++)
+        {
+            dx = p[i].r[0] - p[j].r[0];
+            dy = p[i].r[1] - p[j].r[1];
+            dz = p[i].r[2] - p[j].r[2];
+
+            r2 = dx*dx + dy*dy + dz*dz + env->eps2;
+            rinv  = 1./sqrt(r2);
+            p[i].phi  -= p[i].m * p[j].m * rinv;
+            p[j].phi  -= p[i].m * p[j].m * rinv;
+
+            V -= p[i].m * p[j].m * rinv;
+        }
+    }
 
     for (i=0; i < env->Nm; i++)
     {
@@ -138,12 +163,13 @@ void energy(struct env *env)
            + pow(env->pm[i].v[1],2)
            + pow(env->pm[i].v[2],2);
 
-        E += 0.5*env->pm[i].m * v2 + env->pm[i].phi;
+        K += 0.5*env->pm[i].m * v2;
     }
+
 
     for (i=0; i < env->Nt; i++)
     {
-	phi = 0;
+        phi = 0;
         for (j=0; j < env->Nm; j++)
         {
             dx = env->pt[i].r[0] - env->pm[j].r[0];
@@ -154,15 +180,66 @@ void energy(struct env *env)
             r  = sqrt(r2);
 
             phi -= env->pm[j].m / r;
-	}
+        }
 
         v2 = pow(env->pt[i].v[0],2)
            + pow(env->pt[i].v[1],2)
            + pow(env->pt[i].v[2],2);
 
-	env->pt[i].E = 0.5*v2 + phi;
+        env->pt[i].E = 0.5*v2 + phi;
     }
 
-    //printf("ENERGY %f\n", E);
+
+    E = K + V;
+
+    if (Ncalls == 0)
+        E0 = E;
+
+    Esum += E;
+    Ncalls++;
+    printf("ENERGY %.15e %.15e %.15e %.15e\n", E, K, V, E0, Esum / Ncalls);
 }
 
+void CoM(struct env *env)
+{
+    int i;
+    double M = 0;
+    double cx=0, cy=0, cz=0;
+
+    for (i=0; i < env->Nm; i++)
+    {
+        M += env->pm[i].m;
+
+        cx += env->pm[i].m*env->pm[i].r[0];
+        cy += env->pm[i].m*env->pm[i].r[1];
+        cz += env->pm[i].m*env->pm[i].r[2];
+    }
+
+    env->CoM[0] = cx / M;
+    env->CoM[1] = cy / M;
+    env->CoM[2] = cz / M;
+}
+
+void angmom(struct env *env)
+{
+    int i;
+    double J = 0;
+    double Jx=0, Jy=0, Jz=0;
+
+    for (i=0; i < env->Nm; i++)
+    {
+        Jx += (env->pm[i].r[1] * env->pm[i].v[2] - env->pm[i].r[2] * env->pm[i].v[1]) * env->pm[i].m;
+        Jy += (env->pm[i].r[2] * env->pm[i].v[0] - env->pm[i].r[0] * env->pm[i].v[2]) * env->pm[i].m;
+        Jz += (env->pm[i].r[0] * env->pm[i].v[1] - env->pm[i].r[1] * env->pm[i].v[0]) * env->pm[i].m;
+    }
+    J += sqrt(Jx*Jx + Jy+Jy + Jz*Jz);
+
+//  for (i=0; i < env->Nt; i++)
+//      J +=   env->pt[i].r[0] * env->pt[i].v[0] 
+//           - env->pt[i].r[1] * env->pt[i].v[1] 
+//           - env->pt[i].r[2] * env->pt[i].v[2];
+
+    printf("ANGMOM %.15e\n", J);
+    //return J;
+
+}

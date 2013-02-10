@@ -31,6 +31,22 @@ void units(double *M, double *L, double *T)
     *T = 1.0 / sqrt(Gsi * pow(*L,-3) * *M);
 }
 
+void units_solsystem(double *M, double *L, double *T)
+{
+    double days = 24 * 60 * 60;               // [s]
+    double AU   = 1.49597870691e11;           // [m]
+    double Msun = 1.98892e30;                 // [kg]
+
+    double Gsi = 6.67300e-11*pow(AU,-3)*Msun*pow(days,2); // [kpc^3 msun^-1 gyr^-2]
+
+    //*L = 1.0;   // [AU]
+    *L = 1e-1;   // [AU]
+    *T = 1e3;   // [days] / sqrt(Gsi * pow(*L,-3) * *M);
+    *M = pow(*T,-2) * pow(Gsi,-1) * pow(*L,3); // [Msun]
+
+    fprintf(stderr, "G=%e\n", *M * pow(*T,2) * pow(Gsi,1) * pow(*L,-3));
+}
+
 double new_point(double Rmin, double Rmax, double slope)
 {
     double c, r;
@@ -474,4 +490,151 @@ float sgrstream(struct env *env)
     return FFmax;
 
 
+}
+
+float solsystem(struct env *env)
+{
+    int i;
+    double Mt=1, Lt=1, Tt=1;
+    units_solsystem(&Mt, &Lt, &Tt);
+    env->units.M = Mt;
+    env->units.L = Lt;
+    env->units.T = Tt;
+    env->units.G = 1;
+
+    double Msun = 1.98892e30;                 // [kg]
+    double Mjup = 1.8987e27;
+
+    struct {
+        double x,y,z;
+        double vx,vy,vz;
+        double M;
+    } SS[] = 
+    {
+     // Sun
+     { 0.,0.,0., 0., 0., 0., 1},
+
+     // Mercury
+     { 1.370754491185286E-01, -4.264661186200457E-01, -4.741366654969732E-02, 
+       2.114746190733265E-02,  1.004581022861040E-02, -1.122428604918364E-03,   3.302e23 / Msun},
+     // Venus
+     { 7.229565616872776E-01,  5.608001294512701E-02, -4.098550983391910E-02, 
+      -1.646858780384053E-03,  2.007293064458840E-02,  3.677906364857320E-04,  48.685e23 / Msun},
+     // Earth
+     {-9.472951247336898E-01,  2.926531282918977E-01,  1.678530616122745E-05, 
+      -5.365105883437778E-03, -1.650359033144609E-02, -1.504100835864763E-06, 5.9736e24 / Msun},
+     // Moon
+     {-9.467458988729617E-01,  2.902726107565438E-01, -1.779573682223667E-04, 
+      -4.769970905362414E-03, -1.634099625429580E-02,  2.968006365406434E-05, 734.9e20 / Msun},
+     // Mars
+     { 8.323613394797202E-01,  1.231253451781860E+00,  5.268023383023045E-03, 
+      -1.105805890906632E-02,  9.028381206953562E-03,  4.615746913514457E-04, 6.4185e23 / Msun},
+     // Jupiter
+     { //-5.287494142904107E+00, -1.243507235129249E+00, -3.932468568369884E-01, 
+       //1.687413721789376E-03, -6.977384452214245E-03,  5.658301989168687E-04, 1.89813e27 / Msun},
+       -4.817300396248593E+00, -2.537352081929040E+00,  1.183594107357213E-01, 
+       3.430544476066865E-03, -6.330892933515803E-03, -5.081277966460052E-05, 1.89813e27 / Msun},
+     // Saturn
+     { 7.002859392650318E+00,  5.953410760786836E+00, -3.825476620350814E-01, 
+      -3.912528910160785E-03,  4.233888993422562E-03,  8.166441689583057E-05, 5.68319e26 / Msun},
+     // Uranus
+     {-1.818744549523943E+01, -2.186144292636072E+00,  2.279359559634153E-01, 
+       4.420435097205414E-04, -4.093741565202423E-03, -2.092784146624804E-05, 86.8103e23 / Msun},
+     // Neptune
+     {-1.539752139377567E+01, -2.610796272562613E+01,  8.922320120651117E-01, 
+       2.686374686169427E-03, -1.581855900310080E-03, -2.968604130174336E-05, 1.0241e26 / Msun},
+     // Pluto
+     {-3.039874622789153E+01,  1.918475637076636E+00,  8.585829777861537E+00, 
+       3.999928092384586E-04, -3.325479950192453E-03,  2.292679556968999E-04, 1.314e22 / Msun},
+
+     // X
+     { 0.0, 200.0,0.0,
+       0.0,0.0,0.0,     25*Mjup / Msun},
+     // Y
+     { 0.0, -200.0,0.0,
+       0.0,0.0,0.0,     25*Mjup / Msun},
+    };
+
+    //assert(env->Nm == 10);
+
+    if (env->Nm) env->pm = malloc(env->Nm * sizeof(*env->pm));
+    if (env->Nt) env->pt = malloc(env->Nt * sizeof(*env->pt));
+
+    double M = 0;
+
+    env->pm[0].r[0] = SS[0].x / Lt;
+    env->pm[0].r[1] = SS[0].y / Lt;
+    env->pm[0].r[2] = SS[0].z / Lt;
+    env->pm[0].v[0] = SS[0].vx / (Lt/Tt);
+    env->pm[0].v[1] = SS[0].vy / (Lt/Tt);
+    env->pm[0].v[2] = SS[0].vz / (Lt/Tt);
+    env->pm[0].m    = SS[0].M / Mt;
+
+    fprintf(stderr, "M0 is %e\n", env->pm[0].m);
+
+    M = env->pm[0].m;
+
+    double cx=0, cy=0, cz=0;
+    cx = env->pm[0].m*env->pm[0].r[0];
+    cy = env->pm[0].m*env->pm[0].r[1];
+    cz = env->pm[0].m*env->pm[0].r[2];
+
+    for (i=1; i < env->Nm; i++)
+    {
+        env->pm[i].r[0] = SS[i].x / Lt;
+        env->pm[i].r[1] = SS[i].y / Lt;
+        env->pm[i].r[2] = SS[i].z / Lt;
+        env->pm[i].v[0] = SS[i].vx / (Lt/Tt);
+        env->pm[i].v[1] = SS[i].vy / (Lt/Tt);
+        env->pm[i].v[2] = SS[i].vz / (Lt/Tt);
+
+#if 1
+        if (i==(env->Nm-1) || i==(env->Nm-2))
+        {
+            double vx, vy, vz;
+            double r = sqrt(pow(env->pm[i].r[0],2)
+                          + pow(env->pm[i].r[1],2)
+                          + pow(env->pm[i].r[2],2));
+            double theta = atan2(env->pm[i].r[1], env->pm[i].r[0]);
+
+            vx = 0;
+            vy = +sqrt(M/fabs(r));
+            vz = 0;
+
+            env->pm[i].v[0] = vx*cos(theta) - vy*sin(theta);
+            env->pm[i].v[1] = vx*sin(theta) + vy*cos(theta);
+            env->pm[i].v[2] = 0;
+        }
+#endif
+
+
+        double r = sqrt(pow(env->pm[i].r[0],2)
+                      + pow(env->pm[i].r[1],2)
+                      + pow(env->pm[i].r[2],2));
+
+        env->pm[i].m    = SS[i].M / Mt;
+        fprintf(stderr, "M%i is %e at R=%e\n", i, env->pm[i].m, r);
+        if (i<10)
+        {
+            M += env->pm[i].m;
+        }
+
+        cx += env->pm[i].m*env->pm[i].r[0];
+        cy += env->pm[i].m*env->pm[i].r[1];
+        cz += env->pm[i].m*env->pm[i].r[2];
+    }
+
+    cx /= M;
+    cy /= M;
+    cz /= M;
+
+    //env->pm[10].v[1] = +sqrt(M/fabs(env->pm[10].r[0]));
+
+    fprintf(stderr, "COM %e %e %e\n", cx, cy, cz);
+
+    //env->pm[10].v[1] = +sqrt(M/fabs(env->pm[10].r[0]));
+    //env->pm[11].v[1] = -sqrt(M/fabs(env->pm[11].r[0]));
+        
+    
+    return 0;
 }
