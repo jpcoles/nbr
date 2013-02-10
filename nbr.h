@@ -27,6 +27,11 @@ struct image
     unsigned char *img;
 };
 
+struct units
+{
+    float M,L,T,G;
+};
+
 struct env
 {
     int Nt;            // Number of test particles
@@ -48,13 +53,9 @@ struct env
     struct image image;
     char tag[256];
 
-    struct 
-    {
-        double M,L,T,G;
-    } units;
+    struct units units;
 
     double CoM[3];
-
 };
 
 

@@ -31,6 +31,45 @@ void units(double *M, double *L, double *T)
     *T = 1.0 / sqrt(Gsi * pow(*L,-3) * *M);
 }
 
+void set_units(struct env *env, double M, double L, double T, double G)
+{
+    double Myr  = 1e6 * 365 * 24 * 60 * 60;   // [s]
+    double Gyr  = 1e9 * 365 * 24 * 60 * 60;   // [s]
+    double kpc  = 3.08568025e19;              // [m]
+    double Msun = 1.98892e30;                 // [kg]
+
+    double Gsi = 6.67300e-11*pow(kpc,-3)*Msun*pow(Gyr,2); // [kpc^3 msun^-1 gyr^-2]
+
+    if (M <= 0)
+    {
+        env->units.M = G / (Gsi * pow(L,-3) * pow(T,2));
+        env->units.L = L;
+        env->units.T = T;
+        env->units.G = G;
+    }
+    else if (L <= 0)
+    {
+        env->units.M = M;
+        env->units.L = cbrt(Gsi / G * M * pow(T,2));
+        env->units.T = T;
+        env->units.G = G;
+    }
+    else if (T <= 0)
+    {
+        env->units.M = M;
+        env->units.L = L;
+        env->units.T = sqrt(G/Gsi * pow(L,3) / M);
+        env->units.G = G;
+    }
+    else if (G <= 0)
+    {
+        env->units.M = M;
+        env->units.L = L;
+        env->units.T = T;
+        env->units.G = M * pow(T,2) * Gsi / pow(L,3);
+    }
+}
+
 void units_solsystem(double *M, double *L, double *T)
 {
     double days = 24 * 60 * 60;               // [s]
@@ -489,7 +528,66 @@ float sgrstream(struct env *env)
 
     return FFmax;
 
+}
 
+double droplet(struct env *env, 
+               float x0, float y0, float z0,
+               float M, float Rmin, float Rmax)
+{
+    int i;
+
+    double slope;
+    double em,ff=0,FFmax=0;
+
+    double x,y,z,t,w;
+
+    set_units(env,
+              /*M=*/ 2.3262e5 /* Msun */,
+              /*L=*/ 1        /* kpc  */,
+              /*T=*/ 0,       /*      */
+              /*G=*/ 1);
+
+    double Mt, Lt, Tt;
+
+    Mt = env->units.M;
+    Lt = env->units.L;
+    Tt = env->units.T;
+
+    assert(env->Nm == 0);
+
+    if (env->Nt) env->pt = malloc(env->Nt * sizeof(*env->pt));
+
+    double v, mu;
+    double r,d;
+
+    slope = 1;
+
+    for (i=0; i < env->Nt; i++)
+    {
+        r = new_point(Rmin, Rmax, slope);
+
+        z = 2.0 * drand48() - 1.0;
+
+        t = 2.0 * M_PI * drand48();
+        w = sqrt(1 - z*z);
+        x = w * cos(t);
+        y = w * sin(t);
+
+        env->pt[i].r[0] = (x0 + x * r) / Lt;
+        env->pt[i].r[1] = (y0 + y * r) / Lt;
+        env->pt[i].r[2] = (z0 + z * r) / Lt;
+        //printf("%f %f %f\n", env->pt[i].r[0], env->pt[i].r[1], env->pt[i].r[2]);
+
+        env->pt[i].v[0] = 0 / (Lt/Tt);
+        env->pt[i].v[1] = 0 / (Lt/Tt);
+        env->pt[i].v[2] = 0 / (Lt/Tt);
+
+        r = sqrt(pow(x0 + x * r, 2)
+               + pow(y0 + y * r, 2)
+               + pow(z0 + z * r, 2));
+    }
+
+    return 0;
 }
 
 float solsystem(struct env *env)

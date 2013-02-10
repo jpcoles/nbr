@@ -9,5 +9,8 @@ double ball(struct env *env,
 double single_mass(struct env *env, float M, float Rmin, float Rmax, float slope);
 double wall(struct env *env, float M);
 float sgrstream(struct env *env);
+double droplet(struct env *env, 
+               float x0, float y0, float z0,
+               float M, float Rmin, float Rmax);
 float solsystem(struct env *env);
 #endif

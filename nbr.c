@@ -117,6 +117,33 @@ double pot(struct env *env)
     return 1e11 * 0.5 * (1 - sin(10*t/env->T));
 }
 
+void analytic_potential_kick(struct env *env, struct mparticle *p, struct tparticle *t)
+{
+    int i;
+    double dx, dy, dz;
+    double r, r2, r3;
+    if (p != NULL)
+    {
+    }
+
+    if (t != NULL)
+    {
+        dx = t->r[0];
+        dy = t->r[1];
+        dz = t->r[2];
+
+        r2 = dx*dx + dy*dy + dz*dz + env->eps2;
+        r  = sqrt(r2);
+
+        r3 = r*r2;
+
+        t->v[0] -= 0;
+        t->v[1] -= 0;
+        t->v[2] -= 0;
+        t->phi  -= 0;
+    }
+}
+
 void accelT(struct env *env, double dt)
 {
     int i,j;
@@ -148,6 +175,12 @@ void accelT(struct env *env, double dt)
             t[i].v[2] -= p[j].m * dz / r3 * dt;
             t[i].phi  -= p[j].m / r;
         }
+
+        analytic_potential_kick(env, NULL, &t[i]);
+
+        t[i].v[0] *= env->dt;
+        t[i].v[1] *= env->dt;
+        t[i].v[2] *= env->dt;
 
 #if 0
         dx = t[i].r[0];
@@ -246,10 +279,21 @@ int main(int argc, char **argv)
     env.extent = 1;
     fft = wall(&env, 1e11);
 #endif
+
+#if 0
     env.T = 4*fft;
     env.Nsteps = 200;
     env.dt = 0.01;
     env.step = 0;
+#endif
+
+#if 0
+    droplet(&env, 1,1,1, 0.1, 0.001, 0.01);
+    env.T = env.units.T * 4;
+    env.Nsteps = 200;
+    env.dt = (env.T / env.Nsteps) / 100;
+    env.step = 0;
+#endif
 
 #if 0
     env.Nm = 1;
